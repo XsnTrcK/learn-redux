@@ -12,3 +12,10 @@ export const print3 = (storeAPI) => (next) => (action) => {
   console.log('3')
   return next(action)
 }
+
+export const loggerMiddlware = storeApi => next => action => {
+  console.log('dispatching', action);
+  let result = next(action);
+  console.log('next state', storeApi.getState());
+  return result;
+}
