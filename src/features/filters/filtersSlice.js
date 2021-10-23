@@ -1,5 +1,11 @@
+export const StatusFilters = {
+  All: 'all',
+  Active: 'active',
+  Completed: 'completed',
+}
+
 const initialState = {
-  status: "All",
+  status: StatusFilters.All,
   colors: []
 };
 
@@ -12,16 +18,20 @@ export default function filtersReducer(state = initialState, action) {
       };
     case "filters/colorFilterChanged":
       const { color, changeType } = action.payload;
+      const {colors} = state;
       switch (changeType) {
         case "added":
+          if (colors.includes(color)) {
+            return state;
+          }
           return {
             ...state,
-            colors: [...state.colors, color]
+            colors: [...colors, color]
           };
         case "removed":
           return {
             ...state,
-            colors: state.colors.filter((option) => option === color)
+            colors: colors.filter((option) => option === color)
           };
         default:
           return state;
