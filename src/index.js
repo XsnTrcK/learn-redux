@@ -5,8 +5,10 @@ import App from './App'
 import './api/server'
 import store from './store';
 import {Provider} from 'react-redux';
+import { fetchTodos } from './features/todos/todosSlice'
 
 // Omit existing React rendering logic
+store.dispatch(fetchTodos);
 
 ReactDOM.render(
   <React.StrictMode>
