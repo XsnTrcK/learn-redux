@@ -1,65 +1,155 @@
 import { client } from "../../api/client";
+import { createSelector } from "reselect";
+import { StatusFilters } from "../filters/filtersSlice";
 
-const initialState = [];
-
-function nextTodoId(todos) {
-  const maxId = todos.reduce((maxId, todo) => Math.max(todo.id, maxId), -1);
-  return maxId + 1;
-}
+const initialState = {
+  status: 'idle', // or: 'loading', 'succeded', 'failed'
+  entities: {} // {<todoId>: <todoObject>}
+};
 
 export default function todosReducer(state = initialState, action) {
   switch (action.type) {
     case "todos/todoAdded":
-      return [...state, action.payload];
-    case "todos/todoToggled":
-      return state.map((todo) => {
-        if (todo.id !== action.payload) {
-          return todo;
+      return{
+        ...state,
+        entities: {
+          ...state.entities,
+          [action.payload.id]: action.payload
         }
-
-        return {
-          ...todo,
-          completed: !todo.completed
-        };
-      });
+      };
+    case "todos/todoToggled":
+      const todo = state.entities[action.payload];
+      return {
+        ...state,
+        entities: {
+          ...state.entities,
+          [todo.id]: {
+            ...todo,
+            completed: !todo.completed
+          }
+        }
+      };
     case "todos/colorSelected":
       const { todoId, color } = action.payload;
-      return state.map((todo) => {
-        if (todo.id !== todoId) {
-          return todo;
+      todo = state.entities[todoId];
+      return {
+        ...state,
+        entities: {
+          ...state.entities,
+          [todoId]: {
+            ...todo,
+            color
+          }
         }
-
-        return {
-          ...todo,
-          color
-        };
-      });
+      };
     case "todo/todoDeleted":
-      return state.filter((todo) => todo.id !== action.payload);
+      const newEntities = {...state.entities};
+      delete newEntities[action.payload]
+      return {...state, entities: newEntities};
     case "todo/allCompleted":
-      return state.map((todo) => {
-        return { ...todo, completed: true };
+      const newTodos = {...state.entities};
+      Object.values(newTodos).forEach(todo => {
+        newTodos[todo.id] = {...todo, completed: true};
       });
+      return {
+        ...state,
+        entities: newTodos
+      };
     case "todo/completedCleared":
-      return state.filter((todo) => !todo.completed);
+      const todosNew = {...state.entities};
+      Object.values(todosNew).forEach(todo => {
+        if (todo.completed) {
+          delete todosNew[todo.id];
+        }
+      });
+      return {
+        ...state,
+        entities: todosNew
+      };
     case "todos/todosLoaded":
-      return action.payload;
+      const brandNewTodos = {};
+      action.payload.forEach(todo => brandNewTodos[todo.id] = todo);
+      return {
+        ...state,
+        entities: brandNewTodos,
+        status: 'idle'
+      };
+    case "todos/todosLoading": 
+      return {
+        ...state,
+        status: 'loading'
+      }
     default:
       return state;
   }
 }
 
-export async function fetchTodos(dispatch, getState) {
+export const selectTodoEntitiess = state => state.todos.entities;
+
+export const selectTodos = createSelector(selectTodoEntitiess, entities => Object.values(entities));
+
+export const fetchTodos = () => async (dispatch, getState) => {
+  dispatch(todosLoading());
   const repsonse = await client.get('/fakeApi/todos');
   console.log('Todos before dispatch: ', getState().todos.length);
-  dispatch({type: 'todos/todosLoaded', payload: repsonse.todos});
+  dispatch(todosLoaded(repsonse.todos));
   console.log('Todos after dispatch: ', getState().todos.length);
 }
 
-export function saveNewTodo(text) {
-  return async function saveNewTodoThunk(dispatch, getState) {
-    const initialTodo = {text};
-    const repsonse = await client.post('/fakeApi/todos', {todo: initialTodo});
-    dispatch({type: 'todos/todoAdded', payload: repsonse.todo});
-  }
+export const saveNewTodo = text => async (dispatch, getState) => {
+  const initialTodo = {text};
+  const repsonse = await client.post('/fakeApi/todos', {todo: initialTodo});
+  dispatch(todoAdded(repsonse.todo));
 }
+
+export const todosLoading = () => (
+  {
+    type: "todos/todosLoading"
+  }
+)
+
+export const todosLoaded = todos => (
+  {
+    type: "todos/todosLoaded",
+    payload: todos
+  }
+);
+
+export const todoAdded = todo => (
+  {
+    type: "todos/todoAdded",
+    payload: todo
+  }
+);
+
+export const selectTodoIds = createSelector(
+  selectTodos,
+  todos => todos.map(todo => todo.id)
+);
+
+export const selectFilteredTodos = createSelector(
+  selectTodos,
+  state => state.filters,
+  (todos, filters) => {
+    const {status, colors} = filters;
+    const showAllCompletions = status === StatusFilters.All;
+    if (showAllCompletions && colors.length === 0) {
+      return todos;
+    }
+    const completedStatus = status === StatusFilters.Completed;
+    return todos.filter(todo => {
+      const statusMatches = showAllCompletions || todo.completed === completedStatus;
+      const colorMatches = colors.length === 0 || colors.includes(todo.color);
+      return statusMatches && colorMatches;
+    });
+  }
+)
+
+export const selectFilteredTodoIds = createSelector(
+  selectFilteredTodos,
+  filteredTodos => filteredTodos.map(todo => todo.id)
+)
+
+export const selectTodoById = todoId => state => (
+  selectTodoEntitiess(state)[todoId]
+);

@@ -31,7 +31,7 @@ export default function filtersReducer(state = initialState, action) {
         case "removed":
           return {
             ...state,
-            colors: colors.filter((option) => option === color)
+            colors: colors.filter((option) => option !== color)
           };
         default:
           return state;
@@ -40,3 +40,10 @@ export default function filtersReducer(state = initialState, action) {
       return state;
   }
 }
+
+export const colorFilterChanged = (color, changeType) => {
+  return {
+    type: "filters/colorFilterChanged",
+    payload: {color, changeType}
+  };
+};

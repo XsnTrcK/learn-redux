@@ -8,7 +8,7 @@ import {Provider} from 'react-redux';
 import { fetchTodos } from './features/todos/todosSlice'
 
 // Omit existing React rendering logic
-store.dispatch(fetchTodos);
+store.dispatch(fetchTodos());
 
 ReactDOM.render(
   <React.StrictMode>
